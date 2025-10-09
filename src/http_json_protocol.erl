@@ -1,32 +1,39 @@
 -module(http_json_protocol).
 
--export([decode/1, encode/1]).
+-export([decode/1, decode1/1,  encode/1]).
 
 
 decode(Json1) ->
   Json = fix_escaped_chars(Json1),
-  case validate_input(Json) of
-    ok ->
-      List = decode(Json, <<>>, [], 0),
-      {Kay, Value} = filter_kay_or_value(List, <<>>, [], []),
-      NewValue = check_value(Value, <<>>, []),
-      create_map(Kay, NewValue, #{});
-    {error, Reason} ->
-      {error, Reason}
-  end.
+  io:format("~n Json: ~p~n", [Json]),
+  List = decode(Json, <<>>, [], 0),
+  io:format("~n List decode/4: ~p~n", [List]),
+  {Kay, Value} = filter_kay_or_value(List, <<>>, [], []),
+  io:format("~n {Kay, Value} decode/4: ~p~n", [{Kay, Value}]),
+  NewValue = check_value(Value, <<>>, []),
+  io:format("~n NewValue decode/4: ~p~n", [NewValue]),
+  create_map(Kay, NewValue, #{}).
 
 encode(Arg) ->
   jsx:encode(Arg).
+
+decode1( Json) ->
+  jsx:decode(Json, [return_maps, {labels, attempt_atom}]).
 
 fix_escaped_chars(Bin) when is_binary(Bin) ->
   Bin1 = binary:replace(Bin, <<"\\n">>, <<"\n">>, [global]),
   Bin2 = binary:replace(Bin1, <<"\\t">>, <<"\t">>, [global]),
   Bin3 = binary:replace(Bin2, <<"\\r">>, <<"\r">>, [global]),
   Bin4 = binary:replace(Bin3, <<"\\">>, <<"">>, [global]),
+  io:format("~n fix_escaped_chars Bin4: ~p~n", [Bin4]),
   Bin4.
 
 decode(<<>>, BinAcc, Acc, 0) ->
   lists:reverse([BinAcc | Acc]);
+decode(<<"<<", Rest/binary>>, BinAcc, Acc, Depth) ->
+  decode(Rest, BinAcc, Acc, Depth);
+decode(<<">>", Rest/binary>>, BinAcc, Acc, Depth) ->
+  decode(Rest, BinAcc, Acc, Depth);
 decode(<<"{", Rest/binary>>, BinAcc, Acc, Depth) ->
   decode(Rest, BinAcc, Acc, Depth);
 decode(<<"}", Rest/binary>>, BinAcc, Acc, Depth) ->
@@ -268,14 +275,3 @@ is_key(Bin) when is_binary(Bin) ->
   BinTrim = string:trim(Bin),
   lists:any(fun(Prefix) -> binary:match(BinTrim, Prefix) =/= nomatch end,
     [<<"name:">>, <<"age:">>, <<"secretIdentity:">>, <<"powers:">>]).
-
-validate_input(Json) ->
-  try
-    Clean = string:trim(Json),
-    case {binary:first(Clean), binary:last(Clean)} of
-      {${, $}} -> ok;
-      _ -> {error, invalid_json_format}
-    end
-  catch
-    _:Reason -> {error, Reason}
-  end.

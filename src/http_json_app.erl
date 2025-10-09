@@ -7,7 +7,7 @@
 start(_Type, _Args) ->
 	io:format("~n applicatione start: ~p~n", [ok]),
 	Dispatch = cowboy_router:compile([
-		{'_', [{"/", http_json_handler, []}]}
+		{'_', [{"/[...]", http_json_handler, []}]}
 	]),
 	{ok, _} = cowboy:start_clear(http_json_listener,
 		[{port, 8080}],
